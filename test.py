@@ -5,7 +5,7 @@ from openskyapi.core import Point , City
 class TestOpensky(unittest.TestCase):
 
     def test_city(self):
-        with self.assertRaises(Exception): Point('none')
+        with self.assertRaises(Exception): City('none')
 
     def test_create(self):
         self.assertTrue(Point(13,33))

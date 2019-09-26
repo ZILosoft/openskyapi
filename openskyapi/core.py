@@ -3,9 +3,11 @@
 # Библиотека для получения списка из самолетов в радиусе определенной точки
 #
 
-import requests
 from math import radians, sin, cos, acos
+
+import requests
 from geographiclib.geodesic import Geodesic
+
 from .city import cities
 
 
@@ -21,7 +23,8 @@ class Point:
         self.LATITUDE = latitude
         self.LONGITUDE = longitude
 
-    def _calculatedistance(self, lon1, lat1, lon2, lat2):
+    @staticmethod
+    def _calculate_distance(lon1, lat1, lon2, lat2):
         """
         #вычесляем расстояние между двумя координатами, Warning! матан!
         за подробностями:
@@ -32,20 +35,28 @@ class Point:
         :param lat2:
         :return: расстаяние float
         """
+        earthradius = 6371
         lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
-        return 6371 * (
+        return earthradius * (
             acos(sin(lat1) * sin(lat2) + cos(lat1) * cos(lat2) * cos(lon1 - lon2))
         )
 
-    def _getflights(self, square=270000):
+    @staticmethod
+    def _check_square_km(square):
+        if square <= 0:
+            raise ValueError("Неверное значение км {:f}! должно быть положительным ".format(square))
+
+    def get_flights(self, square=270):
         """
-        Подключается к OpenSky Api запрашивает информацию о находящися самолетах в кадрате в square метрах между стенами
+        Подключается к OpenSky Api запрашивает информацию о находящися самолетах в кадрате в square километрах между стенами
         после вычисляет расстаяние от self кардинат до самолета и возвращает список тех кто находится не дальше square метров
 
-        :param square: Радиус в метрах (optional)
-        :return: list
+        :param square: Радиус в километрах (optional)
+        :return:  Лист, иначе None
         """
-
+        square = round(square, 0)
+        self._check_square_km(square)
+        square *= 1000
         longitudemin = round(Geodesic.WGS84.Direct(self.LATITUDE, self.LONGITUDE, 270, square)['lon2'], 2)  # запад
         latitudemin = round(Geodesic.WGS84.Direct(self.LATITUDE, self.LONGITUDE, 180, square)['lat2'], 2)  # юг
         longitudemax = round(Geodesic.WGS84.Direct(self.LATITUDE, self.LONGITUDE, 90, square)['lon2'], 2)  # восток
@@ -57,16 +68,25 @@ class Point:
                        'lomax': str(longitudemax)}
 
         try:
-            self.resp = requests.get(self.API, params=self.params).json()
+            self.resp = requests.get(self.API, params=self.params, timeout=0.001).json()
+
+        if self.resp.status_code != 200:
+
+
         except requests.exceptions.HTTPError as e:
             # если не получили 200 код
             print("Error: " + str(e))
+        return None
+
+    except requests.exceptions.ConnectTimeout as e:
+    print("Error: " + str(e))
+    return None
         result = []
         # если ответ не пустой
         if not self.resp['states'] == None:
             for state in self.resp['states']:
                 distance = (
-                    self._calculatedistance(self.LONGITUDE, self.LATITUDE, state[5], state[6]))  # вычисляем дистанцию
+                    self._calculate_distance(self.LONGITUDE, self.LATITUDE, state[5], state[6]))  # вычисляем дистанцию
                 if distance < square:  # если меньше square тогда добавляем
                     result.append(
                         {'name': state[1],

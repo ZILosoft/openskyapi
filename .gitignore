@@ -1,0 +1,14 @@
+
+.idea/
+
+venv/
+
+env/
+
+openskyapi.egg-info/
+
+opensky_api.egg-info/
+
+__pycache__/
+
+finder.py

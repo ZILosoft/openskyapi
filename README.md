@@ -1,12 +1,12 @@
 
- Описание
+Description
 ===========
 
-Библиотека для получения списка из самолетов в радиусе определенной точки
-Пример использования
+Library for getting a list of planes within a certain point radius
+#Example usage
 
- ~~~~from openskyapi.core import Point ,City ~~~~
+ ~~~~from openskyapi.core import Point ,City
 Target = Point (58.20,37.62)
-Airplanes = Target._getflights()
+Airplanes = Target.get_flights(267)
 Citytarget = City("Tyumen")
-Airplanescity = Citytarget._getflights()
+Airplanescity = Citytarget.get_flights(445)

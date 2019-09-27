@@ -1,26 +1,26 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Библиотека для получения списка из самолетов в радиусе определенной точки
+# Library for getting a list of planes within a certain point radius
 #
-
-import logging
-from math import radians, sin, cos, acos
 
 import requests
 from geographiclib.geodesic import Geodesic
+from math import radians, sin, cos, acos
 
 from .city import cities
 
-logger = logging.getLogger('opensky_api')
-logger.addHandler(logging.NullHandler())
+API = "https://opensky-network.org/api/"
+
+
+class OpenskyApiException(Exception):
+    pass
 
 
 class Point:
-    API = "https://opensky-network.org/api/"
 
     def __init__(self, latitude, longitude):
         """
-        Создает сущьность используя кординаты
+        Create point with coordinates
         :param latitude:
         :param longitude:
         """
@@ -28,16 +28,16 @@ class Point:
         self.LONGITUDE = longitude
 
     @staticmethod
-    def _calculate_distance(lon1, lat1, lon2, lat2):
+    def calculate_distance(lon1, lat1, lon2, lat2):
         """
-        #вычесляем расстояние между двумя координатами, Warning! матан!
-        за подробностями:
+        calculate distance between the two coordinates
+        for reference:
         https://medium.com/@petehouston/calculate-distance-of-two-locations-on-earth-using-python-1501b1944d97
-        :param lon1:
-        :param lat1:
-        :param lon2:
-        :param lat2:
-        :return: расстаяние float
+        :param lon1:longitude of first point
+        :param lat1:latitude of first point
+        :param lon2:longitude of second point
+        :param lat2:latitude of second point
+        :return: float distance in km
         """
         earth_radius = 6371
         lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
@@ -48,27 +48,25 @@ class Point:
     @staticmethod
     def _check_square_km(square):
         if square <= 0:
-            raise ValueError("Неверное значение км {:f}! должно быть положительным ".format(square))
+            raise OpenskyApiException("Invalid value {} km! Value must be positive".format(square))
 
-    def _get_json(self, url, params=None):
+    @staticmethod
+    def _get_json(url, params=None):
         try:
-            r = requests.get(self.API + url, params=params, timeout=0.001)
+            r = requests.get(API + url, params=params, timeout=30)
         except requests.exceptions.ConnectTimeout as e:
-            logger.error("Timeout Соеденения: {}".format(e))
-            return None
+            raise OpenskyApiException("Timeout Соеденения: {}".format(e))
         if r.status_code == 200:
             return r.json()
         else:
-            logger.debug("Ошибка в запросе {0:d} - {1:s}".format(r.status_code, r.reason))
-        return None
+            raise OpenskyApiException("Ошибка в запросе {0:d} - {1:s}".format(r.status_code, r.reason))
 
     def get_flights(self, square=270):
         """
-        Подключается к OpenSky Api запрашивает информацию о находящися самолетах в кадрате в square километрах между стенами
-        после вычисляет расстаяние от self кардинат до самолета и возвращает список тех кто находится не дальше square метров
-
-        :param square: Радиус в километрах (optional)
-        :return:  Лист, в случаи каких то проблем None
+        Connects to OpenSky Api requests information about aircraft in square between 'square' kilometers
+        after calculating the distance from self coordinate to the plane and returns a list of those who are in round
+        :param square: Radius in km (optional)
+        :return: list
         """
 
         square = round(square, 0)
@@ -87,21 +85,19 @@ class Point:
         self.resp = self._get_json('states/all', self.params)
 
         result = []
-        if self.resp:  # если ответ пустой возвращеаем None
-            if self.resp['states']:  # если ответ содержит значения в States
-                for state in self.resp['states']:
-                    distance = (
-                        self._calculate_distance(self.LONGITUDE, self.LATITUDE, state[5],
-                                                 state[6]))  # вычисляем дистанцию
-                    if distance < square:  # если меньше square тогда добавляем
-                        result.append(
-                            {'name': state[1],
-                             'longitude': float(state[5]),
-                             'latitude': float(state[6]),
-                             'distance': round(distance, 1)})
-        else:
-            return None
-
+        if self.resp['states']:  # if the answer contains values in States
+            for state in self.resp['states']:
+                distance = (
+                    self.calculate_distance(self.LONGITUDE,
+                                            self.LATITUDE,
+                                            state[5],
+                                            state[6]))  # calculate the distance
+                if distance < square:  # if less than square then add
+                    result.append(
+                        {'name': state[1],
+                         'longitude': float(state[5]),
+                         'latitude': float(state[6]),
+                         'distance': round(distance, 1)})
         return result
 
 
@@ -109,12 +105,13 @@ class City(Point):
 
     def __init__(self, city='Berlin'):
         """
-        создаеем сущность с коардинатами города из city.py
-        :param city: string Имя города из City.py
+        create an entity with city coordinates from city.py
+        :param city: string city name from City.py
         """
         try:
             self.city = cities[city]
         except KeyError:
-            raise Exception("'{}' нет такого города.".format(city))
+            raise OpenskyApiException("'{}' no such city in city.py".format(city))
         self.LATITUDE = self.city['latitude']
         self.LONGITUDE = self.city['longitude']
+        super(Point, self).__init__()

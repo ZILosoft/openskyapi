@@ -1,9 +1,10 @@
-from setuptools import setup, find_packages
 from os.path import join, dirname
+
+from setuptools import setup, find_packages
 
 setup(
     name='openskyapi',
-    version='0.0.1',
+    version='0.0.2',
     packages=find_packages(),
     long_description=open(join(dirname(__file__), 'README.rst')).read(),
     test_suite='test',

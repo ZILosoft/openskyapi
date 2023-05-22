@@ -10,7 +10,7 @@ setup(
     test_suite='test',
     install_requires=[
         'geographiclib==1.49',
-        'requests==2.22.0',
+        'requests==2.31.0',
     ]
 
 )
